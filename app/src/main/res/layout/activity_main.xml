@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    tools:context=".MainActivity">
+
+    <Button
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="10dp"
+        android:onClick="checkIfAccessibilityIsEnabled"
+        android:padding="10dp"
+        android:text="检测辅助功能是否开启" />
+
+    <EditText
+        android:id="@+id/etkey"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="关键词"
+        android:padding="10dp" />
+    <EditText
+        android:id="@+id/etappname"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="app名称"
+        android:padding="10dp" />
+
+    <Button
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="10dp"
+        android:onClick="openTheApplicationTreasureKeywordInterface"
+        android:padding="10dp"
+        android:text="打开应用宝关键词界面" />
+
+
+    <ImageView
+        android:id="@+id/ivimage"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="30dp"
+        android:layout_marginBottom="30dp" />
+
+</LinearLayout>
