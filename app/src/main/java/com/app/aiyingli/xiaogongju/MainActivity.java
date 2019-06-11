@@ -25,8 +25,10 @@ import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageView;
 
+import com.app.aiyingli.xiaogongju.entity.WorkBean;
 import com.app.aiyingli.xiaogongju.service.AppAccessibility;
 import com.app.aiyingli.xiaogongju.utils.AppUtils;
+import com.app.aiyingli.xiaogongju.utils.FindViewUtils;
 import com.app.aiyingli.xiaogongju.utils.ScreenUtils;
 import com.app.aiyingli.xiaogongju.utils.To;
 import com.bumptech.glide.Glide;
@@ -95,7 +97,7 @@ public class MainActivity extends AppCompatActivity {
             To.toast("已经开启辅助功能");
             return;
         }
-        AppAccessibility.goOpenAccessService(this);
+        FindViewUtils.goOpenAccessService(this);
         goOpenAccessService = true;
     }
 
@@ -105,7 +107,7 @@ public class MainActivity extends AppCompatActivity {
      * @return
      */
     private boolean detectionAuthority() {
-        boolean accessibilitySettingsOn = AppAccessibility.isAccessibilitySettingsOn(this);
+        boolean accessibilitySettingsOn = FindViewUtils.isAccessibilitySettingsOn(this);
         return accessibilitySettingsOn;
     }
 
@@ -113,6 +115,10 @@ public class MainActivity extends AppCompatActivity {
      * 打开应用宝关键字界面
      */
     public void openTheApplicationTreasureKeywordInterface(View view) {
+
+        AppUtils.hideInput(mEditTextAppName);
+        AppUtils.hideInput(mEditTextKey);
+
 
         boolean b = detectionAuthority();
         if (!b) {
@@ -198,9 +204,12 @@ public class MainActivity extends AppCompatActivity {
 
         String maskName = "com.tencent.android.qqdownloader";
         String activityName = "SearchActivity";
-        AppAccessibility.sPackageName = maskName;
-        AppAccessibility.viewKey = appName;
-        AppAccessibility.activity_name = activityName;
+        WorkBean workBean = new WorkBean();
+        workBean.setActivityName(activityName);
+        workBean.setMaskPackName(maskName);
+        workBean.setKeyWord(keyName);
+        workBean.setAppName(appName);
+        AppAccessibility.setWorkBean(workBean);
         boolean b = AppUtils.startMaskForkeyName(maskName, keyName);
     }
 
@@ -345,6 +354,9 @@ public class MainActivity extends AppCompatActivity {
      */
     private void showImage(File fileImage) {
         runOnUiThread(() -> {
+            if (isDestroyed() || isFinishing()) {
+                return;
+            }
             Glide.with(mImageView).load(fileImage).into(mImageView);
         });
 

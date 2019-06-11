@@ -1,48 +1,74 @@
-package com.app.aiyingli.xiaogongju.service;
+package com.app.aiyingli.xiaogongju.utils;
 
 import android.accessibilityservice.AccessibilityService;
-import android.accessibilityservice.AccessibilityServiceInfo;
-import android.accessibilityservice.GestureDescription;
 import android.annotation.TargetApi;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Path;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
 import android.provider.Settings;
-import android.support.annotation.RequiresApi;
-import android.util.Log;
-import android.view.accessibility.AccessibilityEvent;
-import android.view.accessibility.AccessibilityManager;
 import android.view.accessibility.AccessibilityNodeInfo;
-
-import com.app.aiyingli.xiaogongju.App;
-import com.app.aiyingli.xiaogongju.utils.ScreenUtils;
 
 import java.util.List;
 
-public abstract class BaseAccessibilityService extends AccessibilityService {
+/**
+ * @author Android-小强 on 2019/6/11 10:36
+ * @email: 15075818555@163.com
+ * @ProjectName: xiaogongju
+ * @Package: com.app.aiyingli.xiaogongju.utils
+ * @ClassName: FindViewUtils
+ */
+public class FindViewUtils {
 
-    protected static final String TAG = "12345";
+    /**
+     * Check当前辅助服务是否启用
+     *
+     * @return 是否启用
+     */
+    public static boolean isAccessibilitySettingsOn(Context context) {
+        int accessibilityEnabled = 0;
+        try {
+            accessibilityEnabled = Settings.Secure.getInt(context.getContentResolver(),
+                    Settings.Secure.ACCESSIBILITY_ENABLED);
+        } catch (Settings.SettingNotFoundException e) {
+            e.printStackTrace();
+        }
 
+        if (accessibilityEnabled == 1) {
+            String services = Settings.Secure.getString(context.getContentResolver(),
+                    Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+            if (services != null) {
+                return services.toLowerCase().contains(context.getPackageName().toLowerCase());
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 前往开启辅助服务界面
+     */
+    public static void goOpenAccessService(Context context) {
+        Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        context.startActivity(intent);
+    }
 
 
 
     /**
      * 模拟返回操作
      */
-    public void performBackClick() {
-        performGlobalAction(GLOBAL_ACTION_BACK);
+    public static void performBackClick(AccessibilityService service) {
+        service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK);
     }
 
     /**
      * 模拟下滑操作
      */
-    public void performScrollBackward() {
-        performGlobalAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD);
+    public static void performScrollBackward(AccessibilityService service) {
+        service.performGlobalAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD);
     }
 
 
@@ -52,8 +78,8 @@ public abstract class BaseAccessibilityService extends AccessibilityService {
      * @param text text
      * @return View
      */
-    public AccessibilityNodeInfo findViewByText(String text) {
-        AccessibilityNodeInfo accessibilityNodeInfo = getRootInActiveWindow();
+    public static AccessibilityNodeInfo findViewByText(String text,AccessibilityService service) {
+        AccessibilityNodeInfo accessibilityNodeInfo = service.getRootInActiveWindow();
         if (accessibilityNodeInfo == null) {
             return null;
         }
@@ -74,14 +100,14 @@ public abstract class BaseAccessibilityService extends AccessibilityService {
      * @param text text
      * @return View
      */
-    public List<AccessibilityNodeInfo> findViewByTexts(String text) {
-        AccessibilityNodeInfo accessibilityNodeInfo = getRootInActiveWindow();
+    public static List<AccessibilityNodeInfo> findViewByTexts(String text,AccessibilityService service) {
+        AccessibilityNodeInfo accessibilityNodeInfo = service.getRootInActiveWindow();
         if (accessibilityNodeInfo == null) {
             return null;
         }
         List<AccessibilityNodeInfo> nodeInfoList = accessibilityNodeInfo.findAccessibilityNodeInfosByText(text);
         if (nodeInfoList != null && !nodeInfoList.isEmpty()) {
-           return nodeInfoList;
+            return nodeInfoList;
         }
         return null;
     }
@@ -93,8 +119,8 @@ public abstract class BaseAccessibilityService extends AccessibilityService {
      * @param clickable 该View是否可以点击
      * @return View
      */
-    public AccessibilityNodeInfo findViewByText(String text, boolean clickable) {
-        AccessibilityNodeInfo accessibilityNodeInfo = getRootInActiveWindow();
+    public static AccessibilityNodeInfo findViewByText(String text, boolean clickable,AccessibilityService service) {
+        AccessibilityNodeInfo accessibilityNodeInfo = service.getRootInActiveWindow();
         if (accessibilityNodeInfo == null) {
             return null;
         }
@@ -116,8 +142,8 @@ public abstract class BaseAccessibilityService extends AccessibilityService {
      * @return View
      */
     @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
-    public AccessibilityNodeInfo findViewByID(String id) {
-        AccessibilityNodeInfo accessibilityNodeInfo = getRootInActiveWindow();
+    public static AccessibilityNodeInfo findViewByID(String id,AccessibilityService service) {
+        AccessibilityNodeInfo accessibilityNodeInfo = service.getRootInActiveWindow();
         if (accessibilityNodeInfo == null) {
             return null;
         }
@@ -132,8 +158,8 @@ public abstract class BaseAccessibilityService extends AccessibilityService {
         return null;
     }
 
-    public void clickTextViewByText(String text) {
-        AccessibilityNodeInfo accessibilityNodeInfo = getRootInActiveWindow();
+    public static void clickTextViewByText(String text,AccessibilityService service) {
+        AccessibilityNodeInfo accessibilityNodeInfo = service.getRootInActiveWindow();
         if (accessibilityNodeInfo == null) {
             return;
         }
@@ -153,7 +179,7 @@ public abstract class BaseAccessibilityService extends AccessibilityService {
      *
      * @param nodeInfo nodeInfo
      */
-    public boolean performViewClick(AccessibilityNodeInfo nodeInfo) {
+    public static boolean performViewClick(AccessibilityNodeInfo nodeInfo) {
         if (nodeInfo == null) {
             return false;
         }
@@ -168,8 +194,8 @@ public abstract class BaseAccessibilityService extends AccessibilityService {
     }
 
     @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
-    public void clickTextViewByID(String id) {
-        AccessibilityNodeInfo accessibilityNodeInfo = getRootInActiveWindow();
+    public static void clickTextViewByID(String id,AccessibilityService  service) {
+        AccessibilityNodeInfo accessibilityNodeInfo = service.getRootInActiveWindow();
         if (accessibilityNodeInfo == null) {
             return;
         }
@@ -190,19 +216,22 @@ public abstract class BaseAccessibilityService extends AccessibilityService {
      * @param nodeInfo nodeInfo
      * @param text     text
      */
-    public void inputText(AccessibilityNodeInfo nodeInfo, String text) {
+    public static void inputText(AccessibilityNodeInfo nodeInfo, String text,AccessibilityService service) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             Bundle arguments = new Bundle();
             arguments.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text);
             nodeInfo.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments);
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
-            ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+            ClipboardManager clipboard = (ClipboardManager) service.getSystemService(Context.CLIPBOARD_SERVICE);
             ClipData clip = ClipData.newPlainText("label", text);
             clipboard.setPrimaryClip(clip);
             nodeInfo.performAction(AccessibilityNodeInfo.ACTION_FOCUS);
             nodeInfo.performAction(AccessibilityNodeInfo.ACTION_PASTE);
         }
     }
+
+
+
 
 
 }

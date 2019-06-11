@@ -7,6 +7,9 @@ import android.content.pm.PackageManager;
 import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.text.TextUtils;
+import android.view.View;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.EditText;
 
 import com.app.aiyingli.xiaogongju.App;
 
@@ -162,6 +165,16 @@ public class AppUtils {
             return true;
         } catch (Exception e) {
             return startActivityForPackName(pactName);
+        }
+    }
+
+    /**
+     * 隐藏键盘
+     */
+    public static void hideInput(EditText editText) {
+        InputMethodManager imm = (InputMethodManager) App.sContext.getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (null != editText) {
+            imm.hideSoftInputFromWindow(editText.getWindowToken(), 0);
         }
     }
 }
