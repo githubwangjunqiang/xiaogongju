@@ -9,6 +9,7 @@ import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 
 import com.app.aiyingli.xiaogongju.entity.WorkBean;
+import com.app.aiyingli.xiaogongju.utils.AppUtils;
 import com.app.aiyingli.xiaogongju.utils.FindViewUtils;
 import com.app.aiyingli.xiaogongju.utils.ISlide;
 import com.app.aiyingli.xiaogongju.utils.LogUtils;
@@ -31,8 +32,26 @@ import io.reactivex.disposables.Disposable;
  * @Package: com.app.aiyingli.xiaogongju
  * @ClassName: YingYongBaoManager
  */
-public class YingYongBaoManager extends AccessibilityService implements IYingYongBaoManager, IAccessibilityService {
-
+public class YingYongBaoManager extends AccessibilityService implements IAccessibilityService {
+    /**
+     * 应用宝 包名
+     */
+    public static final String YING_YONG_BAO = "com.tencent.android.qqdownloader";
+    /**
+     * 安装 按钮
+     */
+    public static final String BUTTON_INSTALL = "安装";
+    /**
+     * 列表界面 的初始化按钮 下载 关键字
+     */
+    public static final String DOWN_KEYWOD = "下载";
+    /**
+     * 列表界面 的下载按钮点击过之后  是显示 继续 关键字
+     */
+    public static final String CONTINUE_KEYWOD = "继续";
+    /**
+     * 持有 辅助功能的软引用
+     */
     private Reference<AccessibilityService> mServiceReference;
     /**
      * 当前 执行的 任务
@@ -69,20 +88,88 @@ public class YingYongBaoManager extends AccessibilityService implements IYingYon
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-//        LogUtils.d("event->" + event.toString());
+        LogUtils.d("event->" + event.toString());
+        if (mWorkBean == null) {
+            return;
+        }
 
         if (event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-            if (!detectionWindow(mWorkBean, event)) {
-                return;
+            //窗口变化 执行任务
+            if (detectionWindow(mWorkBean, event)) {
+                mWorkBean.setStart(true);
+                startWork(mWorkBean, event);
             }
-            mWorkBean.setStart(true);
-            startWork(mWorkBean, event);
+            //窗口变化 点击系统安装界面 安装按钮
+            if (isTaskInstallActivity(mWorkBean, event)) {
+                if (mServiceReference.get() != null) {
+                    autoInstallation(mServiceReference.get().getRootInActiveWindow());
+                }
+            }
+            // 已经打开 指定 app 那么 设置 打开状态 为true
+            if (mWorkBean != null && event.getPackageName().equals(mWorkBean.getAppPackName())) {
+                mWorkBean.setOpenApp(true);
+            }
+
         }
+
+        if (event.getEventType() == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
+            //内容变化  判断是否执行任务
+            if (detectionContentChange(mWorkBean, event)) {
+                mWorkBean.setStart(true);
+                startWork(mWorkBean, event);
+            }
+
+            //内容变化 判断是否是安装界面
+            if (isTaskInstallActivity(mWorkBean, event)) {
+                if (mServiceReference.get() != null) {
+                    autoInstallation(mServiceReference.get().getRootInActiveWindow());
+                }
+            }
+            //安装完成 的界面 点击打开按钮
+            if (isSystemOpenActivity(mWorkBean, event)) {
+                openApp(mServiceReference.get());
+            }
+
+        }
+        if (event.getEventType() == AccessibilityEvent.TYPE_VIEW_SCROLLED) {
+            //有内容滚动  判断是否执行任务
+            if (detectionContentChange(mWorkBean, event)) {
+                mWorkBean.setStart(true);
+                startWork(mWorkBean, event);
+            }
+        }
+//        if (event.getEventType() == AccessibilityEvent.TYPE_VIEW_CLICKED) {
+//            //是否是安装界面 点击安装
+//            LogUtils.d("已经收到 点击事件 【安装】" + event.getText() + "-" + mWorkBean.isSuccess() + "" +
+//                    "-" + event.getPackageName().equals(WorkBean.getInstallName()) + "" +
+//                    "-" + !AppUtils.isInstalled(App.sContext, mWorkBean.getAppPackName()));
+//            if (mWorkBean != null &&
+//                    BUTTON_INSTALL.equals(event.getText()) &&
+//                    mWorkBean.isSuccess() &&
+//                    event.getPackageName().equals(WorkBean.getInstallName()) &&
+//                    !AppUtils.isInstalled(App.sContext, mWorkBean.getAppPackName())) {
+//                LogUtils.d("已经收到 点击事件 【安装】");
+//                mWorkBean.setStartInstall(true);
+//            }
+//        }
     }
 
     @Override
     public void onInterrupt() {
 
+    }
+
+    @Override
+    public boolean onUnbind(Intent intent) {
+        return super.onUnbind(intent);
+    }
+
+    @Override
+    public void setAccessService(AccessibilityService accessService) {
+        if (mServiceReference != null) {
+            mServiceReference.clear();
+        }
+        mServiceReference = new SoftReference<>(accessService);
     }
 
     @Override
@@ -105,6 +192,9 @@ public class YingYongBaoManager extends AccessibilityService implements IYingYon
         if (!workBean.getMaskPackName().equals(packageName)) {
             return false;
         }
+        if (AppUtils.isInstalled(App.sContext, mWorkBean.getAppPackName())) {
+            return false;
+        }
 
         String activityName = workBean.getActivityName();
         if (TextUtils.isEmpty(activityName)) {
@@ -112,6 +202,33 @@ public class YingYongBaoManager extends AccessibilityService implements IYingYon
         }
         if (event.getClassName().toString().contains(workBean.getActivityName())) {
             return true;
+        }
+
+
+        return false;
+    }
+
+    @Override
+    public boolean detectionContentChange(WorkBean workBean, AccessibilityEvent event) {
+        if (workBean == null) {
+            return false;
+        }
+        if (workBean.isStart()) {
+            return false;
+        }
+        if (workBean.isSuccess()) {
+            return false;
+        }
+        if (!TextUtils.equals(event.getPackageName(), workBean.getMaskPackName())) {
+            return false;
+        }
+        if (AppUtils.isInstalled(App.sContext, mWorkBean.getAppPackName())) {
+            return false;
+        }
+        CharSequence className = event.getClassName();
+        if (className != null) {
+            boolean contains = className.toString().contains(SlideUtils.LIST_VIEW);
+            return contains;
         }
 
 
@@ -200,12 +317,11 @@ public class YingYongBaoManager extends AccessibilityService implements IYingYon
 
         Rect viewRect = new Rect();
         accessibilityNodeInfo.getBoundsInScreen(viewRect);
-        String keyDown = "下载";
-        List<AccessibilityNodeInfo> btn = FindViewUtils.findViewByTexts(keyDown, this);
+        List<AccessibilityNodeInfo> btn = FindViewUtils.findViewByTexts(DOWN_KEYWOD, this);
         if (mServiceReference.get() == null) {
             return;
         }
-        btn = FindViewUtils.findViewByTexts(keyDown, mServiceReference.get());
+        btn = FindViewUtils.findViewByTexts(DOWN_KEYWOD, mServiceReference.get());
         if (btn != null) {
             for (AccessibilityNodeInfo nodeInfo : btn) {
                 if (nodeInfo != null) {
@@ -213,7 +329,7 @@ public class YingYongBaoManager extends AccessibilityService implements IYingYon
                         continue;
                     }
                     String trim = nodeInfo.getText().toString().trim();
-                    if (!trim.equals(keyDown)) {
+                    if (!trim.equals(DOWN_KEYWOD)) {
                         continue;
                     }
                     Rect rectNode = new Rect();
@@ -227,12 +343,11 @@ public class YingYongBaoManager extends AccessibilityService implements IYingYon
         }
         if (clickInfo == null) {
             To.toast("没有找到‘下载’按钮\n开始寻找‘继续’按钮");
-            keyDown = "继续";
-            List<AccessibilityNodeInfo> proceedBtn = FindViewUtils.findViewByTexts(keyDown, this);
             if (mServiceReference.get() == null) {
                 return;
             }
-            proceedBtn = FindViewUtils.findViewByTexts(keyDown, mServiceReference.get());
+            List<AccessibilityNodeInfo> proceedBtn = FindViewUtils.findViewByTexts(CONTINUE_KEYWOD, mServiceReference.get());
+            proceedBtn = FindViewUtils.findViewByTexts(CONTINUE_KEYWOD, mServiceReference.get());
             if (proceedBtn != null) {
                 for (AccessibilityNodeInfo nodeInfo : proceedBtn) {
                     if (nodeInfo != null) {
@@ -242,7 +357,7 @@ public class YingYongBaoManager extends AccessibilityService implements IYingYon
                         }
                         String trim = charSequence.toString().trim();
 
-                        if (!trim.equals(keyDown)) {
+                        if (!trim.equals(CONTINUE_KEYWOD)) {
                             continue;
                         }
                         Rect rectNode = new Rect();
@@ -260,15 +375,14 @@ public class YingYongBaoManager extends AccessibilityService implements IYingYon
             return;
         }
         boolean b = FindViewUtils.performViewClick(clickInfo);
-        To.toast("点击按钮->" + b);
+//        To.toast("点击按钮->" + b);
         successWork();
-        Disposable subscribe = Observable.timer(500, TimeUnit.MILLISECONDS)
+        Disposable subscribe = Observable.timer(100, TimeUnit.MILLISECONDS)
                 .subscribe(aLong -> {
                     MainActivity.kaishi = true;
                 }, throwable -> {
                 });
     }
-
 
     @Override
     public void stopWork() {
@@ -288,16 +402,118 @@ public class YingYongBaoManager extends AccessibilityService implements IYingYon
     }
 
     @Override
-    public boolean onUnbind(Intent intent) {
-        return super.onUnbind(intent);
+    public boolean isTaskInstallActivity(WorkBean workBean, AccessibilityEvent event) {
+
+        if (workBean == null) {
+            return false;
+        }
+        if (event == null) {
+            return false;
+        }
+        if (workBean.isOpenApp()) {
+            return false;
+        }
+
+        if (workBean.isSuccess() &&
+                event.getPackageName().equals(WorkBean.getInstallName()) &&
+                !AppUtils.isInstalled(App.sContext, workBean.getAppPackName())) {
+//            To.toast("安装界面，符合标准");
+            return true;
+        }
+        return false;
     }
 
     @Override
-    public void setAccessService(AccessibilityService accessService) {
-        if (mServiceReference != null) {
-            mServiceReference.clear();
+    public boolean isSystemOpenActivity(WorkBean workBean, AccessibilityEvent event) {
+        if (workBean == null) {
+            return false;
         }
-        mServiceReference = new SoftReference<>(accessService);
+        if (event == null) {
+            return false;
+        }
+        if (!workBean.isSuccess()) {
+            return false;
+        }
+        if (!AppUtils.isInstalled(App.sContext, workBean.getAppPackName())) {
+            return false;
+        }
+        if (!workBean.isStartInstall()) {
+            return false;
+        }
+        if (workBean.isOpenApp()) {
+            return false;
+        }
+
+        if (event.getPackageName().equals(WorkBean.getOpenAppcPackName())) {
+            return true;
+        }
+
+        return false;
+    }
+
+    @Override
+    public void autoInstallation(AccessibilityNodeInfo nodeInfo) {
+        if (nodeInfo == null) {
+            return;
+        }
+
+        List<AccessibilityNodeInfo> accessibilityNodeInfosByText = nodeInfo.findAccessibilityNodeInfosByText(BUTTON_INSTALL);
+
+        if (accessibilityNodeInfosByText == null || accessibilityNodeInfosByText.isEmpty()) {
+            To.toast("安装界面，没有获取到安装按钮");
+            return;
+        }
+        AccessibilityNodeInfo infoInstall = null;
+        for (AccessibilityNodeInfo data : accessibilityNodeInfosByText) {
+            if (data.getText() != null) {
+                String trim = data.getText().toString().trim();
+                if (TextUtils.equals(trim, BUTTON_INSTALL)) {
+                    infoInstall = data;
+                    break;
+                }
+
+            }
+        }
+        if (infoInstall == null) {
+            To.toast("没有找到安装按钮");
+        } else {
+            boolean performViewClick = FindViewUtils.performViewClick(infoInstall);
+//            To.toast("点击安装按钮-》" + performViewClick);
+            if (performViewClick) {
+                mWorkBean.setStartInstall(true);
+            }
+        }
+
+    }
+
+    @Override
+    public void openApp(AccessibilityService service) {
+        if (mWorkBean == null) {
+            return;
+        }
+        if (service == null) {
+            return;
+        }
+        AccessibilityNodeInfo rootInActiveWindow = service.getRootInActiveWindow();
+        List<AccessibilityNodeInfo> accessibilityNodeInfosByText = rootInActiveWindow.findAccessibilityNodeInfosByText(WorkBean.OPEN);
+        if (accessibilityNodeInfosByText == null || accessibilityNodeInfosByText.isEmpty()) {
+            return;
+        }
+        AccessibilityNodeInfo clickInfo = null;
+        for (AccessibilityNodeInfo data : accessibilityNodeInfosByText) {
+            if (data.getText() != null) {
+                String trim = data.getText().toString().trim();
+                if (trim.equals(WorkBean.OPEN)) {
+                    clickInfo = data;
+                    break;
+                }
+            }
+        }
+        if (clickInfo != null) {
+            FindViewUtils.performViewClick(clickInfo);
+        } else {
+            To.toast("没有找到打开按钮");
+        }
     }
 
     /**

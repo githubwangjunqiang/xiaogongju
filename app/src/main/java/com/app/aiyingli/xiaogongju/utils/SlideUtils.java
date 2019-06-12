@@ -22,11 +22,11 @@ public class SlideUtils implements ISlide {
     /**
      * 滑动的 view
      */
-    private static final String LIST_VIEW = "ListView";
+    public static final String LIST_VIEW = "ListView";
     /**
      * 滑动的 view
      */
-    private static final String RECYCLER_VIEW = "RecyclerView";
+    public static final String RECYCLER_VIEW = "RecyclerView";
     /**
      * 屏幕高度
      */
@@ -65,8 +65,8 @@ public class SlideUtils implements ISlide {
         startVery = 3;
         stopVery = 8;
 
-        startTime = 50;
-        duration = 50;
+        startTime = 10;
+        duration = 100;
     }
 
     @RequiresApi(api = Build.VERSION_CODES.N)

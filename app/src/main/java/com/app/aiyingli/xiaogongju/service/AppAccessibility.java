@@ -31,8 +31,8 @@ public class AppAccessibility extends AccessibilityService {
         try {
 //            Log.d(TAG, "onAccessibilityEvent: " + event.toString());
             if (sWorkBean != null && sWorkBean.getAccessibilityService() != null) {
-                sWorkBean.getAccessibilityService().onAccessibilityEvent(event);
                 ((IAccessibilityService) sWorkBean.getAccessibilityService()).setAccessService(this);
+                sWorkBean.getAccessibilityService().onAccessibilityEvent(event);
             }
         } catch (Exception e) {
             e.printStackTrace();

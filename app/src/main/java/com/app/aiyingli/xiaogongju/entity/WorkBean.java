@@ -1,6 +1,7 @@
 package com.app.aiyingli.xiaogongju.entity;
 
 import android.accessibilityservice.AccessibilityService;
+import android.os.Build;
 import android.text.TextUtils;
 
 import com.app.aiyingli.xiaogongju.YingYongBaoManager;
@@ -14,11 +15,13 @@ import com.app.aiyingli.xiaogongju.YingYongBaoManager;
  */
 public class WorkBean {
     /**
-     * 应用宝
+     * 安装界面 包名  系统
      */
-    public static final String YING_YONG_BAO = "com.tencent.android.qqdownloader";
-
-
+    public static final String INSTALL_ACTIVITY = "com.android.packageinstaller";
+    /**
+     * 打开  按钮
+     */
+    public static final String OPEN = "打开";
     /**
      * 应用市场包名
      */
@@ -28,6 +31,10 @@ public class WorkBean {
      */
     private String appName;
     /**
+     * 任务指定的 金主 app 包名
+     */
+    private String appPackName;
+    /**
      * 任务指定的 金主 关键字
      */
     private String keyWord;
@@ -35,8 +42,6 @@ public class WorkBean {
      * 搜索界面的 活动名字
      */
     private String activityName;
-
-
     /**
      * 该任务 是否已经执行过 开始
      */
@@ -49,16 +54,73 @@ public class WorkBean {
      * 该任务如果 已经开始 那么 完成状态是啥样子的
      */
     private boolean success;
+    /**
+     * 是否点击了 安装按钮 或者
+     */
+    private boolean startInstall;
+    /**
+     * 是否打开了 app
+     */
+    private boolean openApp;
 
+    public WorkBean(String maskPackName, String appName, String appPackName, String keyWord, String activityName) {
+        this.maskPackName = maskPackName;
+        this.appName = appName;
+        this.appPackName = appPackName;
+        this.keyWord = keyWord;
+        this.activityName = activityName;
+    }
 
-    public WorkBean() {
+    /**
+     * 安装界面 包名  小米优化
+     */
+    public static final String getInstallName() {
+        String brand = Build.BRAND;
+        if ("xiaomi".equalsIgnoreCase(brand)) {
+            return "com.miui.packageinstaller";
+        }
+        return INSTALL_ACTIVITY;
+    }
+
+    /**
+     * 获取 安装完成后 提示的打开 app 界面
+     *
+     * @return
+     */
+    public static String getOpenAppcPackName() {
+
+        return "com.android.systemui";
+    }
+
+    public boolean isOpenApp() {
+        return openApp;
+    }
+
+    public void setOpenApp(boolean openApp) {
+        this.openApp = openApp;
+    }
+
+    public boolean isStartInstall() {
+        return startInstall;
+    }
+
+    public void setStartInstall(boolean startInstall) {
+        this.startInstall = startInstall;
+    }
+
+    public String getAppPackName() {
+        return appPackName == null ? "" : appPackName;
+    }
+
+    public void setAppPackName(String appPackName) {
+        this.appPackName = appPackName;
     }
 
     public AccessibilityService getAccessibilityService() {
         if (TextUtils.isEmpty(getMaskPackName())) {
             return null;
         }
-        if (getMaskPackName().equals(YING_YONG_BAO)) {
+        if (getMaskPackName().equals(YingYongBaoManager.YING_YONG_BAO)) {
             YingYongBaoManager singleCase = (YingYongBaoManager) YingYongBaoManager.getSingleCase();
             singleCase.setWorkBean(this);
             return YingYongBaoManager.getSingleCase();

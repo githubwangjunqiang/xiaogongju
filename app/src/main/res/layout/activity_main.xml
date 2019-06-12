@@ -27,6 +27,12 @@
         android:layout_height="wrap_content"
         android:hint="app名称"
         android:padding="10dp" />
+    <EditText
+        android:id="@+id/erapp_packname"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="app包名"
+        android:padding="10dp" />
 
     <Button
         android:layout_width="match_parent"

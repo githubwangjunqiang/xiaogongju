@@ -48,6 +48,14 @@ import io.reactivex.disposables.Disposable;
 public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_MEDIA_PROJECTION = 1001;
     public static boolean kaishi;
+    String key = "金融";
+//    String app = "慧金融";
+        String app = "金元宝";
+    String maskName = "com.tencent.android.qqdownloader";
+    String activityName = "SearchActivity";
+//    String appPackName = "hy.heebank";
+        String appPackName = "com.tianpin.juehuan";
+    private EditText mEditTextAppPackName;
     /**
      * 开启辅助功能界面 标识
      */
@@ -60,8 +68,6 @@ public class MainActivity extends AppCompatActivity {
     private String doc;
     private Disposable subscribe;
     private ImageView mImageView;
-
-
     private EditText mEditTextKey, mEditTextAppName;
 
     @Override
@@ -71,10 +77,15 @@ public class MainActivity extends AppCompatActivity {
         mImageView = findViewById(R.id.ivimage);
         mEditTextKey = findViewById(R.id.etkey);
         mEditTextAppName = findViewById(R.id.etappname);
+        mEditTextAppPackName = findViewById(R.id.erapp_packname);
         Disposable subscribe = new RxPermissions(this)
                 .request(Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE)
                 .subscribe(aBoolean -> {
                     if (aBoolean) {
+                        mEditTextKey.setText(key);
+                        mEditTextAppName.setText(app);
+                        mEditTextAppPackName.setText(appPackName);
+
 
                     } else {
                         To.toast("没有权限");
@@ -200,15 +211,9 @@ public class MainActivity extends AppCompatActivity {
 
         String keyName = mEditTextKey.getText().toString().trim();
         String appName = mEditTextAppName.getText().toString().trim();
+        String appPackName = mEditTextAppPackName.getText().toString().trim();
 
-
-        String maskName = "com.tencent.android.qqdownloader";
-        String activityName = "SearchActivity";
-        WorkBean workBean = new WorkBean();
-        workBean.setActivityName(activityName);
-        workBean.setMaskPackName(maskName);
-        workBean.setKeyWord(keyName);
-        workBean.setAppName(appName);
+        WorkBean workBean = new WorkBean(maskName, appName, appPackName, keyName, activityName);
         AppAccessibility.setWorkBean(workBean);
         boolean b = AppUtils.startMaskForkeyName(maskName, keyName);
     }
@@ -235,7 +240,7 @@ public class MainActivity extends AppCompatActivity {
         if (subscribe != null && !subscribe.isDisposed()) {
             return;
         }
-        subscribe = Observable.interval(0, 800, TimeUnit.MILLISECONDS)
+        subscribe = Observable.interval(0, 500, TimeUnit.MILLISECONDS)
                 .subscribe(aLong -> {
                     if (!kaishi) {
                         return;
