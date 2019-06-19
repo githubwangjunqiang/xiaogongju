@@ -334,7 +334,6 @@ public class AppAccessibility1 extends BaseAccessibilityService {
         sPackageName = "";
         Disposable subscribe = Observable.timer(500, TimeUnit.MILLISECONDS)
                 .subscribe(aLong -> {
-                    MainActivity.kaishi = true;
                 }, throwable -> {
                 });
 
@@ -383,7 +382,6 @@ public class AppAccessibility1 extends BaseAccessibilityService {
             To.toast("点击下载按钮->" + b);
             Disposable subscribe = Observable.timer(500, TimeUnit.MILLISECONDS)
                     .subscribe(aLong -> {
-                        MainActivity.kaishi = true;
                     }, throwable -> {
                     });
         }

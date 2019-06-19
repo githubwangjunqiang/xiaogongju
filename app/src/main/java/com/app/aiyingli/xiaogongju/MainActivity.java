@@ -15,6 +15,7 @@ import android.os.Build;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.provider.MediaStore;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -22,10 +23,12 @@ import android.text.TextUtils;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 
 import com.app.aiyingli.xiaogongju.entity.WorkBean;
+import com.app.aiyingli.xiaogongju.media.MediaManager;
 import com.app.aiyingli.xiaogongju.service.AppAccessibility;
 import com.app.aiyingli.xiaogongju.utils.AppUtils;
 import com.app.aiyingli.xiaogongju.utils.FindViewUtils;
@@ -47,26 +50,29 @@ import io.reactivex.disposables.Disposable;
 
 public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_MEDIA_PROJECTION = 1001;
-    public static boolean kaishi;
     String key = "金融";
-//    String app = "慧金融";
-        String app = "金元宝";
-    String maskName = "com.tencent.android.qqdownloader";
+//    String key = "视频";
+//    String app = "分期花";
+//    String appPackName = "com.fenqi.loan";
+
+    String app = "金元宝";
+    String appPackName = "com.tianpin.juehuan";
+
+//    String app = "抖音短视频";
+//    String appPackName = "com.ss.android.ugc.aweme";
+
+
+//    String maskName = HuaWeiManager.PACK_NAME;
+    String maskName = YingYongBaoManager.PACK_NAME;
     String activityName = "SearchActivity";
-//    String appPackName = "hy.heebank";
-        String appPackName = "com.tianpin.juehuan";
+
+
     private EditText mEditTextAppPackName;
+    private Button mButton;
     /**
      * 开启辅助功能界面 标识
      */
     private boolean goOpenAccessService = false;
-    private MediaProjectionManager mMediaProjectionManager;
-    private MediaProjection mMediaProjection;
-    private VirtualDisplay mVirtualDisplay;
-    private ImageReader mImageReader;
-    private Handler handler;
-    private String doc;
-    private Disposable subscribe;
     private ImageView mImageView;
     private EditText mEditTextKey, mEditTextAppName;
 
@@ -78,6 +84,21 @@ public class MainActivity extends AppCompatActivity {
         mEditTextKey = findViewById(R.id.etkey);
         mEditTextAppName = findViewById(R.id.etappname);
         mEditTextAppPackName = findViewById(R.id.erapp_packname);
+        mButton = findViewById(R.id.btn);
+
+        mImageView.setOnClickListener(v -> {
+            try {
+                Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(intent);
+            } catch (Exception e) {
+                e.printStackTrace();
+                To.toast("打开相机失败");
+                return;
+            }
+        });
+
+
         Disposable subscribe = new RxPermissions(this)
                 .request(Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE)
                 .subscribe(aBoolean -> {
@@ -85,8 +106,7 @@ public class MainActivity extends AppCompatActivity {
                         mEditTextKey.setText(key);
                         mEditTextAppName.setText(app);
                         mEditTextAppPackName.setText(appPackName);
-
-
+                        mButton.setText("打开" + maskName + "搜索关键词下载");
                     } else {
                         To.toast("没有权限");
                         finish();
@@ -94,6 +114,12 @@ public class MainActivity extends AppCompatActivity {
                 }, throwable -> {
                     To.toast("出错了");
                 });
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        MediaManager.getManager().stopWork();
     }
 
     /**
@@ -148,14 +174,8 @@ public class MainActivity extends AppCompatActivity {
             To.toast("请输入真实app名称");
             return;
         }
-
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
-
-            mMediaProjectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
-
-            startActivityForResult(mMediaProjectionManager.createScreenCaptureIntent(), REQUEST_MEDIA_PROJECTION);
-
-        }
+        MediaProjectionManager mediaProjectionManager = MediaManager.getManager().createMediaProjectionManager(this);
+        startActivityForResult(mediaProjectionManager.createScreenCaptureIntent(), REQUEST_MEDIA_PROJECTION);
     }
 
     @Override
@@ -185,23 +205,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void init(int resultCode, @Nullable Intent data) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-
-            doc = new SimpleDateFormat("yyyy.MM.dd-HH:mm:ss").format(System.currentTimeMillis()) + "";
-            kaishi = false;
-            clearSubscribe();
-
-            mMediaProjection = mMediaProjectionManager.getMediaProjection(resultCode, data);
-
-            mImageReader = ImageReader.newInstance(ScreenUtils.getScreenWidth(this),
-                    ScreenUtils.getScreenHeight(this), PixelFormat.RGBA_8888, 2);
-            setImagelistener();
-            mVirtualDisplay = mMediaProjection.createVirtualDisplay("12212121212",
-//                    mImageReader.getWidth(), mImageReader.getHeight(), Resources.getSystem().getDisplayMetrics().densityDpi,
-                    mImageReader.getWidth(), mImageReader.getHeight(), DisplayMetrics.DENSITY_260,
-                    DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-                    mImageReader.getSurface(), null, null);
-        }
+        MediaManager.getManager().startScreenRecording(this, resultCode, data);
     }
 
     /**
@@ -213,163 +217,19 @@ public class MainActivity extends AppCompatActivity {
         String appName = mEditTextAppName.getText().toString().trim();
         String appPackName = mEditTextAppPackName.getText().toString().trim();
 
-        WorkBean workBean = new WorkBean(maskName, appName, appPackName, keyName, activityName);
+        if (AppUtils.isInstalled(this, appPackName)) {
+            To.toast("您已经下载指定app了");
+            return;
+        }
+        if (!AppUtils.isInstalled(this, maskName)) {
+            To.toast("您还没有下载指定应用市场");
+            return;
+        }
+
+
+        WorkBean workBean = new WorkBean(appName, maskName, appName, appPackName, keyName, activityName);
         AppAccessibility.setWorkBean(workBean);
         boolean b = AppUtils.startMaskForkeyName(maskName, keyName);
     }
 
-    private void clearSubscribe() {
-        if (subscribe != null && !subscribe.isDisposed()) {
-            subscribe.dispose();
-        }
-        subscribe = null;
-    }
-
-    private void setImagelistener() {
-
-        mImageReader.setOnImageAvailableListener(reader -> {
-            getImage(mImageReader);
-
-        }, getBackgroundHandler());
-
-    }
-
-    private void getImage(ImageReader reader) {
-
-
-        if (subscribe != null && !subscribe.isDisposed()) {
-            return;
-        }
-        subscribe = Observable.interval(0, 500, TimeUnit.MILLISECONDS)
-                .subscribe(aLong -> {
-                    if (!kaishi) {
-                        return;
-                    }
-                    kaishi = false;
-
-                    Image image = reader.acquireLatestImage();
-                    if (image == null) {
-                        return;
-                    }
-                    int width = image.getWidth();
-                    int height = image.getHeight();
-                    final Image.Plane[] planes = image.getPlanes();
-                    final ByteBuffer buffer = planes[0].getBuffer();
-                    int pixelStride = planes[0].getPixelStride();
-                    int rowStride = planes[0].getRowStride();
-                    int rowPadding = rowStride - pixelStride * width;
-                    Bitmap bitmap = Bitmap.createBitmap(width + rowPadding / pixelStride, height, Bitmap.Config.ARGB_8888);
-                    bitmap.copyPixelsFromBuffer(buffer);
-
-                    final Bitmap bitmapFile = Bitmap.createBitmap(bitmap, 0, 0, width, height);
-                    image.close();
-                    saveFile(bitmapFile);
-                }, throwable -> {
-                    Log.e("12345", "getImage: ", throwable);
-                    stopLuping();
-                    stopImageRead();
-                });
-    }
-
-    private Handler getBackgroundHandler() {
-        if (handler == null) {
-            HandlerThread backgroundThread =
-                    new HandlerThread("catwindow", android.os.Process
-                            .THREAD_PRIORITY_BACKGROUND);
-            backgroundThread.start();
-            handler = new Handler(backgroundThread.getLooper());
-        }
-        return handler;
-    }
-
-    private void saveFile(Bitmap images) {
-        try {
-            File fileImage = null;
-            if (images != null) {
-                try {
-                    File file = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
-                    if (!file.exists()) {
-                        file.mkdirs();
-                    }
-                    File fileBaseDoc = new File(file.getAbsolutePath(), "小工具");
-                    if (!fileBaseDoc.exists()) {
-                        fileBaseDoc.mkdirs();
-                    }
-//                    File filedoc = new File(fileBaseDoc.getAbsolutePath(), doc);
-//                    if (!filedoc.exists()) {
-//                        filedoc.mkdirs();
-//                    }
-                    fileImage = new File(fileBaseDoc.getAbsolutePath(),
-                            new SimpleDateFormat("yyyy_MM_dd:HH_mm_ss").format(System.currentTimeMillis()) + ".jpeg");
-
-                    FileOutputStream out = new FileOutputStream(fileImage);
-                    if (out != null) {
-                        boolean compress = images.compress(Bitmap.CompressFormat.JPEG, 90, out);
-                        if (compress) {
-                            AppUtils.scanGalleryFile(new String[]{fileImage.getAbsolutePath()});
-                            To.toast("自动保存截图到相册");
-                            showImage(fileImage);
-                        }
-                        out.flush();
-                        out.close();
-                    }
-
-                } catch (FileNotFoundException e) {
-                    e.printStackTrace();
-                    fileImage = null;
-                } catch (IOException e) {
-                    e.printStackTrace();
-                    fileImage = null;
-                }
-            }
-
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            To.toast("" + e.getLocalizedMessage());
-        }
-    }
-
-    private void stopLuping() {
-        if (mVirtualDisplay == null) {
-            return;
-        }
-        mVirtualDisplay.release();
-        mVirtualDisplay = null;
-
-        if (mMediaProjection != null) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                mMediaProjection.stop();
-            }
-            mMediaProjection = null;
-        }
-    }
-
-    private void stopImageRead() {
-        mImageReader.setOnImageAvailableListener(null, null);
-        if (mImageReader != null) {
-            mImageReader.close();
-        }
-    }
-
-    /**
-     * 显示图片
-     *
-     * @param fileImage
-     */
-    private void showImage(File fileImage) {
-        runOnUiThread(() -> {
-            if (isDestroyed() || isFinishing()) {
-                return;
-            }
-            Glide.with(mImageView).load(fileImage).into(mImageView);
-        });
-
-    }
-
-    public void jieshu(View view) {
-        stopLuping();
-        stopImageRead();
-        clearSubscribe();
-    }
 }

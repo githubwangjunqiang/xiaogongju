@@ -1,10 +1,17 @@
 package com.app.aiyingli.xiaogongju.entity;
 
 import android.accessibilityservice.AccessibilityService;
+import android.graphics.Rect;
 import android.os.Build;
+import android.os.Environment;
 import android.text.TextUtils;
 
+import com.app.aiyingli.xiaogongju.App;
+import com.app.aiyingli.xiaogongju.HuaWeiManager;
 import com.app.aiyingli.xiaogongju.YingYongBaoManager;
+import com.app.aiyingli.xiaogongju.service.SuperAccessibilityService;
+
+import java.io.File;
 
 /**
  * @author Android-小强 on 2019/6/10 13:54
@@ -18,10 +25,21 @@ public class WorkBean {
      * 安装界面 包名  系统
      */
     public static final String INSTALL_ACTIVITY = "com.android.packageinstaller";
+    //小米手机
+    public static final String Xiao_mi = "xiaomi";
+    //华为手机
+    public static final String Hua_wei = "huawei";
+
     /**
      * 打开  按钮
      */
     public static final String OPEN = "打开";
+
+
+    /**
+     * 任务id
+     */
+    private String id;
     /**
      * 应用市场包名
      */
@@ -42,6 +60,11 @@ public class WorkBean {
      * 搜索界面的 活动名字
      */
     private String activityName;
+
+    /**
+     * 是否 是第一次打开 点击权限提示框 去授权 按钮 后 现实的 系统权限申请界面
+     */
+    private boolean clickAccess;
     /**
      * 该任务 是否已经执行过 开始
      */
@@ -51,19 +74,20 @@ public class WorkBean {
      */
     private boolean stop;
     /**
-     * 该任务如果 已经开始 那么 完成状态是啥样子的
+     * 该任务如果 已经开始 并且 已经找到指定app的位置 点击了 下载按钮
      */
     private boolean success;
     /**
-     * 是否点击了 安装按钮 或者
+     * 下载指定app完成后 不是静默安装的市场 需要自动安装 标识已经找到了自动安装的按钮 并且点击了
      */
     private boolean startInstall;
     /**
-     * 是否打开了 app
+     * 市场 安装完成后 找到打开按钮 打开app 标识是否打开了 app
      */
     private boolean openApp;
 
-    public WorkBean(String maskPackName, String appName, String appPackName, String keyWord, String activityName) {
+    public WorkBean(String id, String maskPackName, String appName, String appPackName, String keyWord, String activityName) {
+        this.id = id;
         this.maskPackName = maskPackName;
         this.appName = appName;
         this.appPackName = appPackName;
@@ -76,8 +100,11 @@ public class WorkBean {
      */
     public static final String getInstallName() {
         String brand = Build.BRAND;
-        if ("xiaomi".equalsIgnoreCase(brand)) {
+        if (Xiao_mi.equalsIgnoreCase(brand)) {
             return "com.miui.packageinstaller";
+        }
+        if (Hua_wei.equalsIgnoreCase(brand)) {
+            return INSTALL_ACTIVITY;
         }
         return INSTALL_ACTIVITY;
     }
@@ -88,8 +115,69 @@ public class WorkBean {
      * @return
      */
     public static String getOpenAppcPackName() {
-
+        String brand = Build.BRAND;
+        if (Xiao_mi.equalsIgnoreCase(brand)) {
+            return "com.android.systemui";
+        }
+        if (Hua_wei.equalsIgnoreCase(brand)) {
+            return "com.android.packageinstalle";
+        }
         return "com.android.systemui";
+    }
+
+    /**
+     * 权限 界面 根据手机 返回不同的 包名 来匹配
+     *
+     * @return
+     */
+    public static String getPermission() {
+        String brand = Build.BRAND;
+        if (Xiao_mi.equalsIgnoreCase(brand)) {
+            return "com.lbe.security.miui";
+        }
+        if (Hua_wei.equalsIgnoreCase(brand)) {
+            return "com.android.packageinstaller";
+        }
+        return "com.lbe.security.miui";
+    }
+
+    /**
+     * 根据机型 获取安装界面的 安装按钮 或者 继续安装
+     *
+     * @return
+     */
+    public static String getPackageInstallerButton() {
+        String brand = Build.BRAND;
+        if (Xiao_mi.equalsIgnoreCase(brand)) {
+            return "安装";
+        }
+        if (Hua_wei.equalsIgnoreCase(brand)) {
+            return "继续安装";
+        }
+        return "安装";
+    }
+
+    /**
+     * 获取系统权限 弹框 的 按钮  允许 按钮
+     * @return
+     */
+    public static String getPermissionBtnText() {
+        String brand = Build.BRAND;
+        if (Xiao_mi.equalsIgnoreCase(brand)) {
+            return "允许";
+        }
+        if (Hua_wei.equalsIgnoreCase(brand)) {
+            return "始终允许";
+        }
+        return "允许";
+    }
+
+    public boolean isClickAccess() {
+        return clickAccess;
+    }
+
+    public void setClickAccess(boolean clickAccess) {
+        this.clickAccess = clickAccess;
     }
 
     public boolean isOpenApp() {
@@ -120,10 +208,15 @@ public class WorkBean {
         if (TextUtils.isEmpty(getMaskPackName())) {
             return null;
         }
-        if (getMaskPackName().equals(YingYongBaoManager.YING_YONG_BAO)) {
-            YingYongBaoManager singleCase = (YingYongBaoManager) YingYongBaoManager.getSingleCase();
+        if (getMaskPackName().equals(YingYongBaoManager.PACK_NAME)) {
+            SuperAccessibilityService singleCase = YingYongBaoManager.getSingleCase();
             singleCase.setWorkBean(this);
-            return YingYongBaoManager.getSingleCase();
+            return singleCase;
+        }
+        if (getMaskPackName().equals(HuaWeiManager.PACK_NAME)) {
+            SuperAccessibilityService singleCase = HuaWeiManager.getSingleCase();
+            singleCase.setWorkBean(this);
+            return singleCase;
         }
 
         return null;
@@ -183,5 +276,30 @@ public class WorkBean {
 
     public void setKeyWord(String keyWord) {
         this.keyWord = keyWord;
+    }
+
+    /**
+     * 获取 此任务 保存截图的文件夹
+     *
+     * @return
+     */
+    public String getFileDoc() {
+        File file = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
+        if (!file.exists()) {
+            file.mkdirs();
+        }
+        File filedoc = new File(file, getId());
+        if (!filedoc.exists()) {
+            filedoc.mkdirs();
+        }
+        return filedoc.getAbsolutePath();
+    }
+
+    public String getId() {
+        return id == null ? "" : id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
     }
 }

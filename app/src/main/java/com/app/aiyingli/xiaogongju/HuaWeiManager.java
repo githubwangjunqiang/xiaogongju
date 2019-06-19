@@ -5,11 +5,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Rect;
 import android.os.Build;
-import android.os.Environment;
 import android.text.TextUtils;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
-import android.widget.TextView;
 
 import com.app.aiyingli.xiaogongju.entity.WorkBean;
 import com.app.aiyingli.xiaogongju.media.MediaManager;
@@ -38,43 +36,24 @@ import io.reactivex.disposables.Disposable;
  * @Package: com.app.aiyingli.xiaogongju
  * @ClassName: YingYongBaoManager
  */
-public class YingYongBaoManager extends SuperAccessibilityService {
+public class HuaWeiManager extends SuperAccessibilityService implements IAccessibilityService {
     /**
      * 应用宝 包名
      */
-    public static final String PACK_NAME = "com.tencent.android.qqdownloader";
+    public static final String PACK_NAME = "com.huawei.appmarket";
     /**
      * 列表界面 的初始化按钮 下载 关键字
      */
-    public static final String DOWN_KEYWOD = "下载";
+    public static final String DOWN_KEYWOD = "安装";
     /**
      * 列表界面 的下载按钮点击过之后  是显示 继续 关键字
      */
     public static final String CONTINUE_KEYWOD = "继续";
-    /**
-     * 第一次启动 有一个 弹窗提示用户 下面会申请权限 判断是弹框
-     */
-    public static final String ACCESS_DIALOG = "Dialog";
-    /**
-     * 第一次启动 有一个 弹窗提示用户 下面会申请权限 标题文案
-     */
-    public static final String ACCESS_TITLE = "权限申请";
-    /**
-     * 第一次启动 有一个 弹窗提示用户 下面会申请权限 标题文案
-     */
-    public static final String ACCESS_TITLE2 = "获取权限提示";
-    /**
-     * 第一次启动 有一个 弹窗提示用户 下面会申请权限 点击 去授权 按钮文案
-     */
-    public static final String ACCESS_GOTOGRANT = "去授权";
-    /**
-     * 第一次启动 有一个 弹窗提示用户 下面会申请权限 点击 确定 按钮文案
-     */
-    public static final String ACCESS_GOTOGRANT2 = "确定";
 
-    protected YingYongBaoManager(Context context) {
+    protected HuaWeiManager(Context context) {
         super(context);
     }
+
 
     /**
      * 单例 方法
@@ -85,23 +64,14 @@ public class YingYongBaoManager extends SuperAccessibilityService {
         return Holder.mAccessibilityService;
     }
 
+
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
         LogUtils.d("event->" + event.toString());
         if (getWorkBean() == null) {
             return;
         }
-
         if (event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-            //应用宝第一次打开 有权限申请 请选择去授权
-            if (detectionPermission(getWorkBean(), event)) {
-                permitPermission(getWorkBean(), mServiceReference.get());
-            }
-            //系统权限申请框
-            if (detectionSystemPermission(getWorkBean(), event)) {
-                clickPermission(getWorkBean(), mServiceReference.get());
-            }
-
             //窗口变化 执行任务
             if (detectionWindow(getWorkBean(), event)) {
                 getWorkBean().setStart(true);
@@ -125,10 +95,6 @@ public class YingYongBaoManager extends SuperAccessibilityService {
         }
 
         if (event.getEventType() == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
-            //系统权限申请框
-            if (detectionSystemPermission(getWorkBean(), event)) {
-                clickPermission(getWorkBean(), mServiceReference.get());
-            }
             //内容变化  判断是否执行任务
             if (detectionContentChange(getWorkBean(), event)) {
                 getWorkBean().setStart(true);
@@ -141,6 +107,10 @@ public class YingYongBaoManager extends SuperAccessibilityService {
                     autoInstallation(mServiceReference.get().getRootInActiveWindow());
                 }
             }
+            //安装完成 的界面 点击打开按钮
+            if (isSystemOpenActivity(getWorkBean(), event)) {
+                openApp(mServiceReference.get());
+            }
         }
         if (event.getEventType() == AccessibilityEvent.TYPE_VIEW_SCROLLED) {
             //有内容滚动  判断是否执行任务
@@ -149,39 +119,46 @@ public class YingYongBaoManager extends SuperAccessibilityService {
                 startWork(getWorkBean(), event);
             }
         }
-        if (event.getEventType() == AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED) {
-            //应用宝 安装完成 app 后 会发出此通知
-            //安装完成 的界面 点击打开按钮
-            if (isSystemOpenActivity(getWorkBean(), event)) {
-                openApp(mServiceReference.get());
-            }
-        }
-    }
 
+    }
 
     @Override
     public boolean detectionPermission(WorkBean workBean, AccessibilityEvent event) {
-        if (workBean == null || event == null) {
+        return false;
+    }
+
+    @Override
+    public void permitPermission(WorkBean workBean, AccessibilityService service) {
+
+    }
+
+
+
+    @Override
+    public boolean isSystemOpenActivity(WorkBean workBean, AccessibilityEvent event) {
+        if (workBean == null) {
             return false;
         }
-        if (!PACK_NAME.equals(event.getPackageName())) {
+        if (event == null) {
             return false;
         }
-        if (workBean.isStart()) {
+        if (!workBean.isSuccess()) {
             return false;
         }
-        CharSequence className = event.getClassName();
-        if (TextUtils.isEmpty(className)) {
+        if (!AppUtils.isInstalled(App.sContext, workBean.getAppPackName())) {
             return false;
         }
-        if (!className.toString().contains(ACCESS_DIALOG)) {
+        //重写此方法 判断如果是 华为手机 会静默安装 所以 不存在点击安装按钮
+        String brand = Build.BRAND;
+        if (!WorkBean.Hua_wei.equalsIgnoreCase(brand)) {
+            if (!workBean.isStartInstall()) {
+                return false;
+            }
+        }
+        if (workBean.isOpenApp()) {
             return false;
         }
-        List<CharSequence> texts = event.getText();
-        if (texts == null || texts.isEmpty()) {
-            return false;
-        }
-        if (texts.contains(ACCESS_TITLE)||texts.contains(ACCESS_TITLE2)) {
+        if (event.getPackageName().equals(getWorkBean().getMaskPackName())) {
             return true;
         }
 
@@ -189,28 +166,44 @@ public class YingYongBaoManager extends SuperAccessibilityService {
     }
 
     @Override
-    public void permitPermission(WorkBean workBean, AccessibilityService service) {
-        if (workBean == null || service == null) {
+    public void openApp(AccessibilityService service) {
+        if (getWorkBean() == null) {
+            return;
+        }
+        if (service == null) {
             return;
         }
 
-        AccessibilityNodeInfo rootInActiveWindow = service.getRootInActiveWindow();
-        if (rootInActiveWindow == null) {
+        AccessibilityNodeInfo keyWordnodeInfo = getKeyWordnodeInfo(getWorkBean(), service);
+        if (keyWordnodeInfo == null) {
+            To.toast("没有找到app名称");
             return;
         }
-        AccessibilityNodeInfo viewByText = FindViewUtils.findViewByText(ACCESS_GOTOGRANT, service);
-        if (viewByText == null) {
-            To.toast("没有找到去授予按钮，去找确定按钮");
-            viewByText = FindViewUtils.findViewByText(ACCESS_GOTOGRANT2, service);
-        }
-        if(viewByText == null){
-            To.toast("没有找到 指定 按钮");
+        List<AccessibilityNodeInfo> accessibilityNodeInfosByText = FindViewUtils.findViewByTexts(WorkBean.OPEN, service);
+        if (accessibilityNodeInfosByText == null || accessibilityNodeInfosByText.isEmpty()) {
             return;
         }
-        boolean performViewClick = FindViewUtils.performViewClick(viewByText);
-        LogUtils.d("点击去授予成功");
-        workBean.setClickAccess(true);
-
+        AccessibilityNodeInfo clickInfo = null;
+        Rect rectAppName = new Rect();
+        keyWordnodeInfo.getBoundsInScreen(rectAppName);
+        for (AccessibilityNodeInfo data : accessibilityNodeInfosByText) {
+            if (data.getText() != null) {
+                String trim = data.getText().toString().trim();
+                if (trim.equals(WorkBean.OPEN)) {
+                    Rect rect = new Rect();
+                    data.getBoundsInScreen(rect);
+                    if (compareRect(rectAppName, rect)) {
+                        clickInfo = data;
+                        break;
+                    }
+                }
+            }
+        }
+        if (clickInfo != null) {
+            FindViewUtils.performViewClick(clickInfo);
+        } else {
+            To.toast("没有找到打开按钮");
+        }
     }
 
     @Override
@@ -227,6 +220,6 @@ public class YingYongBaoManager extends SuperAccessibilityService {
      * 内部类 单例模式
      */
     private static final class Holder {
-        private static final SuperAccessibilityService mAccessibilityService = new YingYongBaoManager(App.sContext);
+        private static final SuperAccessibilityService mAccessibilityService = new HuaWeiManager(App.sContext);
     }
 }
